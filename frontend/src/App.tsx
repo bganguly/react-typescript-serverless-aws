@@ -8,6 +8,7 @@ interface JobResponse {
   message: string;
   createdAt: string;
   updatedAt: string;
+  processingAt?: string;
   processedAt?: string;
   result?: string;
 }
@@ -48,6 +49,25 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const isConfigured = useMemo(() => Boolean(apiBaseUrl), []);
+
+  function formatTimestampWithMs(iso?: string): string {
+    if (!iso) {
+      return "-";
+    }
+
+    const date = new Date(iso);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = String(date.getFullYear());
+    const hours24 = date.getHours();
+    const hours12 = hours24 % 12 || 12;
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    const ms = String(date.getMilliseconds()).padStart(3, "0");
+    const period = hours24 >= 12 ? "pm" : "am";
+
+    return `${month}/${day}/${year} ${hours12}:${minutes}:${seconds}.${ms} ${period}`;
+  }
 
   useEffect(() => {
     if (!currentJobId) {
@@ -136,7 +156,15 @@ export default function App() {
               <strong>ID:</strong> {job.jobId}
             </p>
             <p>
-              <strong>Status:</strong> {job.status}
+              <strong>Status pending:</strong> {formatTimestampWithMs(job.createdAt)}
+            </p>
+            <p>
+              <strong>Status processing:</strong>{" "}
+              {formatTimestampWithMs(job.processingAt)}
+            </p>
+            <p>
+              <strong>Status completed:</strong>{" "}
+              {formatTimestampWithMs(job.processedAt)}
             </p>
             <p>
               <strong>Message:</strong> {job.message}

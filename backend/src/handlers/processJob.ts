@@ -54,7 +54,8 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
     const payload = JSON.parse(snsEnvelope.Message) as { jobId: string };
     const jobId = payload.jobId;
 
-    await setStatus(jobId, "PROCESSING");
+    const processingAt = new Date().toISOString();
+    await setStatus(jobId, "PROCESSING", { processingAt });
 
     // Simulate work and persist final state.
     await new Promise((resolve) => setTimeout(resolve, 1500));

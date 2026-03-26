@@ -6,6 +6,7 @@ export interface JobItem {
   status: JobStatus;
   createdAt: string;
   updatedAt: string;
+  processingAt?: string;
   processedAt?: string;
   result?: string;
 }
