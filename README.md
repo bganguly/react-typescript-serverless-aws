@@ -2,6 +2,12 @@
 
 A minimal sample you can deploy with `sls deploy`.
 
+## Screenshots
+
+![Job Completed Screen](assets/images/screenshot-2.png)
+![Home Screen](assets/images/screenshot-1.png)
+
+
 ## Architecture
 
 1. React app sends `POST /jobs` to API Gateway.
