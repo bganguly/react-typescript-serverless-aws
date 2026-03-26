@@ -1,0 +1,23 @@
+{
+  "name": "aws-serverless-backend-sample",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "remove": "serverless remove",
+    "info": "serverless info",
+    "build": "serverless package"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^24.0.0",
+    "serverless": "^4.13.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.769.0",
+    "@aws-sdk/client-sns": "^3.769.0",
+    "@aws-sdk/lib-dynamodb": "^3.769.0"
+  }
+}

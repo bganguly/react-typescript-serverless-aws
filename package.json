@@ -1,0 +1,13 @@
+{
+  "name": "aws-serverless-fullstack-sample",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "preview:frontend": "npm --prefix frontend run preview",
+    "where": "./scripts/where-am-i.sh",
+    "deploy": "./scripts/deploy-backend.sh",
+    "remove": "./scripts/remove-backend.sh"
+  }
+}

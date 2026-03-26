@@ -1,0 +1,110 @@
+service: react-lambda-streaming-sample
+frameworkVersion: '4'
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  httpApi:
+    cors:
+      allowedOrigins:
+        - '*'
+      allowedHeaders:
+        - Content-Type
+      allowedMethods:
+        - GET
+        - POST
+  environment:
+    JOBS_TABLE: ${self:service}-${sls:stage}-jobs
+    JOBS_TOPIC_ARN: !Ref JobsTopic
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+          Resource: !GetAtt JobsTable.Arn
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource: !Ref JobsTopic
+
+functions:
+  createJob:
+    handler: src/handlers/createJob.handler
+    events:
+      - httpApi:
+          method: POST
+          path: /jobs
+  getJob:
+    handler: src/handlers/getJob.handler
+    events:
+      - httpApi:
+          method: GET
+          path: /jobs/{jobId}
+  processJob:
+    handler: src/handlers/processJob.handler
+    events:
+      - sqs:
+          arn: !GetAtt JobsQueue.Arn
+          batchSize: 1
+
+resources:
+  Resources:
+    JobsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.JOBS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: jobId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: jobId
+            KeyType: HASH
+
+    JobsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${sls:stage}-jobs-topic
+
+    JobsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${sls:stage}-jobs-queue
+        VisibilityTimeout: 30
+
+    JobsSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: !Ref JobsTopic
+        Protocol: sqs
+        Endpoint: !GetAtt JobsQueue.Arn
+
+    JobsQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref JobsQueue
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: '*'
+              Action: sqs:SendMessage
+              Resource: !GetAtt JobsQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref JobsTopic
+
