@@ -12,9 +12,28 @@ A minimal sample you can deploy with `sls deploy`.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24.x only (enforced via `engines` + `engine-strict`)
 - AWS credentials configured in your shell (`aws configure`)
 - Serverless Framework account login if your setup requires it
+
+## Node version
+
+This repo is pinned to Node 24.
+
+Quick setup with nvm:
+
+```bash
+nvm use
+```
+
+If Node 24 is not installed yet:
+
+```bash
+nvm install 24
+nvm use 24
+```
+
+If you use a different Node version, `npm install` will fail by design.
 
 ## Folder layout
 
