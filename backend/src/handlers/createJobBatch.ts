@@ -21,8 +21,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const { messages } = parsedBody;
-  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 100) {
-    return { statusCode: 400, body: JSON.stringify({ error: "messages must be a non-empty array of up to 100 strings" }) };
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 200) {
+    return { statusCode: 400, body: JSON.stringify({ error: "messages must be a non-empty array of up to 200 strings" }) };
   }
 
   const trimmed = (messages as unknown[]).map(m => (typeof m === "string" ? m.trim() : ""));

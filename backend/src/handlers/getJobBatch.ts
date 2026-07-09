@@ -18,19 +18,24 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const { jobIds } = parsedBody;
-  if (!Array.isArray(jobIds) || jobIds.length === 0 || jobIds.length > 100) {
-    return { statusCode: 400, body: JSON.stringify({ error: "jobIds must be a non-empty array of up to 100 strings" }) };
+  if (!Array.isArray(jobIds) || jobIds.length === 0 || jobIds.length > 200) {
+    return { statusCode: 400, body: JSON.stringify({ error: "jobIds must be a non-empty array of up to 200 strings" }) };
   }
 
-  const result = await ddb.send(new BatchGetCommand({
-    RequestItems: {
-      [tableName]: {
-        Keys: (jobIds as string[]).map(jobId => ({ jobId }))
-      }
-    }
-  }));
+  // DynamoDB BatchGetItem hard limit is 100 keys per call — chunk for counts > 100
+  const ids = jobIds as string[];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
 
-  const items = (result.Responses?.[tableName] ?? []) as JobItem[];
+  const responses = await Promise.all(
+    chunks.map(chunk => ddb.send(new BatchGetCommand({
+      RequestItems: {
+        [tableName]: { Keys: chunk.map(jobId => ({ jobId })) }
+      }
+    })))
+  );
+
+  const items = responses.flatMap(r => (r.Responses?.[tableName] ?? []) as JobItem[]);
 
   return {
     statusCode: 200,

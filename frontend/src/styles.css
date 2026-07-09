@@ -391,3 +391,173 @@ button:disabled {
   border-radius: 50%;
   animation: spin 700ms linear infinite;
 }
+
+/* ── view toggle ────────────────────────────────────────────── */
+.view-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 150ms, background 150ms;
+  margin-left: 0.4rem;
+}
+.view-toggle:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.04);
+}
+
+/* ── stacked (building) view ────────────────────────────────── */
+.stk-board {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  overflow: hidden;
+}
+
+.stk-col {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.stk-col-pending    { border-top: 3px solid #ca8a04; }
+.stk-col-processing { border-top: 3px solid #2563eb; }
+.stk-col-completed  { border-top: 3px solid var(--accent); }
+
+.stk-col-hdr {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.025);
+  border-bottom: 1px solid var(--border);
+}
+.stk-col-pending    .stk-col-hdr { color: #92400e; }
+.stk-col-processing .stk-col-hdr { color: #1e40af; }
+.stk-col-completed  .stk-col-hdr { color: var(--accent); }
+.stk-col-hdr b { margin-left: 0.2rem; }
+
+.stk-floors {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+}
+
+.stk-floor {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  background: var(--panel);
+  border: 1px solid rgba(0,0,0,0.07);
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  animation: floorDrop 240ms ease-out both;
+  cursor: default;
+}
+.stk-floor:hover { border-color: #9ca3af; }
+.stk-floor-creating { opacity: 0.5; }
+.stk-floor-error    { border-color: #fca5a5; background: rgba(185,28,28,0.05); }
+.stk-floor-done     { border-color: rgba(15,118,110,0.2); }
+
+.stk-floor-msg {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 0.68rem;
+}
+
+/* ── hover detail modal ─────────────────────────────────────── */
+.job-modal {
+  position: fixed;
+  z-index: 200;
+  background: color-mix(in srgb, var(--panel) 96%, white 4%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.1);
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  font-size: 0.82rem;
+  animation: rise 180ms ease-out both;
+  pointer-events: all;
+}
+
+.jm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.jm-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.jm-badge.jm-pending    { background: rgba(202,138,4,0.12);  color: #b45309; }
+.jm-badge.jm-processing { background: rgba(37,99,235,0.12);  color: #1d4ed8; }
+.jm-badge.jm-completed  { background: rgba(15,118,110,0.12); color: var(--accent); }
+
+.jm-msg {
+  margin: 0 0 0.2rem;
+  font-weight: 500;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.jm-id {
+  margin: 0 0 0.5rem;
+  font-family: monospace;
+  font-size: 0.67rem;
+  color: #9ca3af;
+  word-break: break-all;
+}
+
+.jm-tl { margin: 0.2rem 0 0; }
+
+.jm-tl .tl-time {
+  overflow: visible;
+  text-overflow: initial;
+}
+
+.jm-result {
+  margin: 0.5rem 0 0;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.jm-err {
+  margin: 0.25rem 0 0;
+  color: var(--error);
+  font-size: 0.78rem;
+  word-break: break-word;
+}
+
+@keyframes floorDrop {
+  from { opacity: 0; transform: translateY(-8px) translateX(-4px); }
+  to   { opacity: 1; transform: none; }
+}
