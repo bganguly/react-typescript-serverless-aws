@@ -24,20 +24,31 @@ interface TrackedJob {
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const MAX_JOBS = 100;
 
-async function createJob(message: string): Promise<{ jobId: string; status: JobStatus }> {
-  const response = await fetch(`${apiBaseUrl}/jobs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message })
-  });
-  if (!response.ok) throw new Error(`Create job failed with status ${response.status}`);
-  return (await response.json()) as { jobId: string; status: JobStatus };
-}
-
 async function fetchJob(jobId: string): Promise<JobResponse> {
   const response = await fetch(`${apiBaseUrl}/jobs/${jobId}`);
   if (!response.ok) throw new Error(`Fetch job failed with status ${response.status}`);
   return (await response.json()) as JobResponse;
+}
+
+async function createJobBatch(
+  messages: string[],
+  onRetry?: (attempt: number, max: number) => void
+): Promise<JobResponse[]> {
+  const MAX_ATTEMPTS = 4;
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const response = await fetch(`${apiBaseUrl}/jobs/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages })
+    });
+    if (response.ok) return (await response.json()) as JobResponse[];
+    if (response.status < 500 || i === MAX_ATTEMPTS - 1) {
+      throw new Error(`Batch create failed with status ${response.status}`);
+    }
+    onRetry?.(i + 1, MAX_ATTEMPTS);
+    await new Promise(r => setTimeout(r, 800 * (i + 1)));
+  }
+  throw new Error("unreachable");
 }
 
 function formatTs(iso?: string): string {
@@ -55,6 +66,7 @@ export default function App() {
   const [counter, setCounter] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warmupMsg, setWarmupMsg] = useState<string | null>(null);
   const intervalsRef = useRef<Map<string, number>>(new Map());
 
   const isConfigured = Boolean(apiBaseUrl);
@@ -86,6 +98,7 @@ export default function App() {
     if (!isConfigured) { setError("Set VITE_API_BASE_URL before submitting jobs"); return; }
 
     setError(null);
+    setWarmupMsg(null);
     setIsSubmitting(true);
 
     const label = message.trim();
@@ -95,27 +108,24 @@ export default function App() {
     const baseCounter = counter;
     setCounter(c => c + n);
 
-    // fire all n jobs in parallel
-    const results = await Promise.allSettled(
-      Array.from({ length: n }, async (_, i) => {
-        const created = await createJob(label);
-        const initial = await fetchJob(created.jobId);
-        return { counter: baseCounter + i + 1, label, jobId: created.jobId, data: initial, error: null } as TrackedJob;
-      })
-    );
-
-    const succeeded: TrackedJob[] = [];
-    const errors: string[] = [];
-    results.forEach(r => {
-      if (r.status === "fulfilled") succeeded.push(r.value);
-      else errors.push((r.reason as Error).message);
-    });
-
-    if (succeeded.length > 0) {
-      setJobs(prev => [...succeeded, ...prev]);
-      succeeded.forEach(j => { if (j.data?.status !== "COMPLETED") startPolling(j.jobId); });
+    try {
+      const initialJobs = await createJobBatch(Array(n).fill(label), (attempt, max) => {
+        setWarmupMsg(`Lambda cold start — warming up (retry ${attempt}/${max - 1})…`);
+      });
+      const tracked: TrackedJob[] = initialJobs.map((data, i) => ({
+        counter: baseCounter + i + 1,
+        label,
+        jobId: data.jobId,
+        data,
+        error: null
+      }));
+      setWarmupMsg(null);
+      setJobs(prev => [...tracked, ...prev]);
+      tracked.forEach(j => { if (j.data?.status !== "COMPLETED") startPolling(j.jobId); });
+    } catch (err) {
+      setCounter(c => c - n);
+      setError((err as Error).message);
     }
-    if (errors.length > 0) setError(errors[0]);
 
     setIsSubmitting(false);
   }
@@ -155,6 +165,7 @@ export default function App() {
         </form>
 
         {!isConfigured && <p className="warning">VITE_API_BASE_URL is missing. Add it in frontend/.env.local.</p>}
+        {warmupMsg && <p className="warmup"><span className="spinner spinner-xs" />{warmupMsg}</p>}
         {error && <p className="error">{error}</p>}
 
         {jobs.length > 0 && (

@@ -55,6 +55,12 @@ functions:
       - httpApi:
           method: POST
           path: /jobs
+  createJobBatch:
+    handler: src/handlers/createJobBatch.handler
+    events:
+      - httpApi:
+          method: POST
+          path: /jobs/batch
   getJob:
     handler: src/handlers/getJob.handler
     events:
