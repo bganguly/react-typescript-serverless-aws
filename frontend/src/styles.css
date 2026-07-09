@@ -238,6 +238,21 @@ button:disabled {
 .job-list-scroll.scrollable .job-card {
   min-height: 28px;
 }
+.job-list-scroll.scrollable .job-label,
+.job-list-scroll.scrollable .job-id,
+.job-list-scroll.scrollable .job-timeline,
+.job-list-scroll.scrollable .job-result,
+.job-list-scroll.scrollable .job-error,
+.job-list-scroll.scrollable .job-label-muted,
+.job-list-scroll.scrollable .spinner {
+  display: none;
+}
+.job-list-scroll.scrollable .job-card-header {
+  justify-content: center;
+}
+.job-list-scroll.scrollable .job-tag {
+  font-size: 0.7rem;
+}
 
 /* ── individual job card ────────────────────────────────────── */
 .job-card {
