@@ -233,9 +233,25 @@ button:disabled {
   animation: fadeIn 280ms ease-out both;
 }
 
+.job-card.loading    { border-left-color: #4b5563; background: rgba(75,85,99,0.04); }
 .job-card.pending    { border-left-color: #ca8a04; background: rgba(202,138,4,0.04); }
 .job-card.processing { border-left-color: #2563eb; background: rgba(37,99,235,0.04); }
 .job-card.completed  { border-left-color: var(--accent); background: rgba(15,118,110,0.04); }
+
+.job-card-creating {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.55;
+}
+
+.job-label-muted {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .job-card-header {
   display: flex;

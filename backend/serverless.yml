@@ -42,6 +42,7 @@ provider:
             - dynamodb:PutItem
             - dynamodb:GetItem
             - dynamodb:UpdateItem
+            - dynamodb:BatchGetItem
           Resource: !GetAtt JobsTable.Arn
         - Effect: Allow
           Action:
@@ -67,6 +68,12 @@ functions:
       - httpApi:
           method: GET
           path: /jobs/{jobId}
+  getJobBatch:
+    handler: src/handlers/getJobBatch.handler
+    events:
+      - httpApi:
+          method: POST
+          path: /jobs/batch/status
   processJob:
     handler: src/handlers/processJob.handler
     events:
