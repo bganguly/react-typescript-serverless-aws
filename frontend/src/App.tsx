@@ -24,7 +24,7 @@ interface TrackedJob {
 }
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
-const MAX_JOBS = 200;
+const MAX_JOBS = 10000;
 
 async function fetchJobsBatch(jobIds: string[]): Promise<JobResponse[]> {
   const response = await fetch(`${apiBaseUrl}/jobs/batch/status`, {
@@ -66,15 +66,20 @@ function formatTs(iso?: string): string {
 }
 
 function gridCols(n: number): string {
-  if (n === 1)  return 'minmax(auto, 520px)';
-  if (n <= 4)   return 'repeat(2, 1fr)';
-  if (n <= 9)   return 'repeat(3, 1fr)';
-  if (n <= 20)  return 'repeat(4, 1fr)';
-  if (n <= 35)  return 'repeat(5, 1fr)';
-  if (n <= 60)  return 'repeat(6, 1fr)';
-  if (n <= 100) return 'repeat(8, 1fr)';
-  if (n <= 150) return 'repeat(10, 1fr)';
-  return 'repeat(12, 1fr)';
+  if (n === 1)    return 'minmax(auto, 520px)';
+  if (n <= 4)     return 'repeat(2, 1fr)';
+  if (n <= 9)     return 'repeat(3, 1fr)';
+  if (n <= 20)    return 'repeat(4, 1fr)';
+  if (n <= 35)    return 'repeat(5, 1fr)';
+  if (n <= 60)    return 'repeat(6, 1fr)';
+  if (n <= 100)   return 'repeat(8, 1fr)';
+  if (n <= 150)   return 'repeat(10, 1fr)';
+  if (n <= 200)   return 'repeat(12, 1fr)';
+  if (n <= 500)   return 'repeat(15, 1fr)';
+  if (n <= 1000)  return 'repeat(20, 1fr)';
+  if (n <= 2000)  return 'repeat(25, 1fr)';
+  if (n <= 5000)  return 'repeat(32, 1fr)';
+  return          'repeat(40, 1fr)';
 }
 
 export default function App() {
@@ -91,6 +96,7 @@ export default function App() {
   const runStartRef = useRef<number>(0);
   const hoverTimer = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef(false);
   jobsRef.current = jobs;
 
   // Restore scroll when switching back to the tab (visibilitychange)
@@ -137,18 +143,23 @@ export default function App() {
   // Single shared poller — one Lambda call per tick for all in-flight jobs
   useEffect(() => {
     const id = window.setInterval(async () => {
+      if (pollingRef.current) return;
       const inFlight = jobsRef.current.filter(
         j => !j.loading && !j.error && j.data?.status !== "COMPLETED"
       );
       if (inFlight.length === 0) return;
+      pollingRef.current = true;
       try {
         const updates = await fetchJobsBatch(inFlight.map(j => j.jobId));
+        const byId = new Map(updates.map(r => [r.jobId, r]));
         setJobs(prev => prev.map(j => {
-          const u = updates.find(r => r.jobId === j.jobId);
+          const u = byId.get(j.jobId);
           return u ? { ...j, data: u } : j;
         }));
       } catch {
         // silent — retry on next tick
+      } finally {
+        pollingRef.current = false;
       }
     }, 2000);
     return () => window.clearInterval(id);
@@ -276,7 +287,7 @@ export default function App() {
 
             <div
                 ref={scrollRef}
-                className="job-list-scroll"
+                className={`job-list-scroll${visibleJobs > 200 ? ' scrollable' : ''}`}
                 style={{ gridTemplateColumns: gridCols(visibleJobs) }}
                 onScroll={e => localStorage.setItem('sls-scroll', String(e.currentTarget.scrollTop))}
               >

@@ -229,6 +229,16 @@ button:disabled {
   justify-content: center;
 }
 
+.job-list-scroll.scrollable {
+  grid-auto-rows: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.job-list-scroll.scrollable .job-card {
+  min-height: 28px;
+}
+
 /* ── individual job card ────────────────────────────────────── */
 .job-card {
   display: flex;
@@ -477,6 +487,10 @@ button:disabled {
     overflow-y: auto !important;
     /* push last row above the Android gesture bar / iOS home indicator */
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+  }
+  /* wider grid for large counts so scroll distance stays manageable */
+  .job-list-scroll.scrollable {
+    grid-template-columns: repeat(8, 1fr) !important;
   }
   /* centre and slightly enlarge the counter chip */
   .job-card { min-height: 32px; }

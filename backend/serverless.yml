@@ -43,10 +43,12 @@ provider:
             - dynamodb:GetItem
             - dynamodb:UpdateItem
             - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
           Resource: !GetAtt JobsTable.Arn
         - Effect: Allow
           Action:
             - sns:Publish
+            - sns:PublishBatch
           Resource: !Ref JobsTopic
 
 functions:
@@ -58,6 +60,7 @@ functions:
           path: /jobs
   createJobBatch:
     handler: src/handlers/createJobBatch.handler
+    timeout: 28
     events:
       - httpApi:
           method: POST

@@ -18,8 +18,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const { jobIds } = parsedBody;
-  if (!Array.isArray(jobIds) || jobIds.length === 0 || jobIds.length > 200) {
-    return { statusCode: 400, body: JSON.stringify({ error: "jobIds must be a non-empty array of up to 200 strings" }) };
+  if (!Array.isArray(jobIds) || jobIds.length === 0 || jobIds.length > 10000) {
+    return { statusCode: 400, body: JSON.stringify({ error: "jobIds must be a non-empty array of up to 10000 strings" }) };
   }
 
   // DynamoDB BatchGetItem hard limit is 100 keys per call — chunk for counts > 100
