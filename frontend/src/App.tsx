@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED";
 
@@ -13,177 +13,198 @@ interface JobResponse {
   result?: string;
 }
 
+interface TrackedJob {
+  counter: number;
+  label: string;
+  jobId: string;
+  data: JobResponse | null;
+  error: string | null;
+}
+
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const MAX_JOBS = 100;
 
 async function createJob(message: string): Promise<{ jobId: string; status: JobStatus }> {
   const response = await fetch(`${apiBaseUrl}/jobs`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message })
   });
-
-  if (!response.ok) {
-    throw new Error(`Create job failed with status ${response.status}`);
-  }
-
+  if (!response.ok) throw new Error(`Create job failed with status ${response.status}`);
   return (await response.json()) as { jobId: string; status: JobStatus };
 }
 
 async function fetchJob(jobId: string): Promise<JobResponse> {
   const response = await fetch(`${apiBaseUrl}/jobs/${jobId}`);
-
-  if (!response.ok) {
-    throw new Error(`Fetch job failed with status ${response.status}`);
-  }
-
+  if (!response.ok) throw new Error(`Fetch job failed with status ${response.status}`);
   return (await response.json()) as JobResponse;
+}
+
+function formatTs(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  const h = d.getHours();
+  return `${pad(h % 12 || 12)}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)} ${h >= 12 ? "pm" : "am"}`;
 }
 
 export default function App() {
   const [message, setMessage] = useState("Build me a serverless sample");
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [job, setJob] = useState<JobResponse | null>(null);
+  const [count, setCount] = useState(1);
+  const [jobs, setJobs] = useState<TrackedJob[]>([]);
+  const [counter, setCounter] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const intervalsRef = useRef<Map<string, number>>(new Map());
 
-  const isConfigured = useMemo(() => Boolean(apiBaseUrl), []);
+  const isConfigured = Boolean(apiBaseUrl);
 
-  function formatTimestampWithMs(iso?: string): string {
-    if (!iso) {
-      return "-";
-    }
-
-    const date = new Date(iso);
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = String(date.getFullYear());
-    const hours24 = date.getHours();
-    const hours12 = hours24 % 12 || 12;
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const seconds = String(date.getSeconds()).padStart(2, "0");
-    const ms = String(date.getMilliseconds()).padStart(3, "0");
-    const period = hours24 >= 12 ? "pm" : "am";
-
-    return `${month}/${day}/${year} ${hours12}:${minutes}:${seconds}.${ms} ${period}`;
-  }
-
-  useEffect(() => {
-    if (!currentJobId) {
-      return;
-    }
-
-    let cancelled = false;
-    const pollInterval = window.setInterval(async () => {
+  const startPolling = useCallback((jobId: string) => {
+    const id = window.setInterval(async () => {
       try {
-        const data = await fetchJob(currentJobId);
-        if (!cancelled) {
-          setJob(data);
-          if (data.status === "COMPLETED") {
-            window.clearInterval(pollInterval);
-          }
+        const data = await fetchJob(jobId);
+        setJobs(prev => prev.map(j => j.jobId === jobId ? { ...j, data } : j));
+        if (data.status === "COMPLETED") {
+          window.clearInterval(intervalsRef.current.get(jobId));
+          intervalsRef.current.delete(jobId);
         }
-      } catch (pollError) {
-        if (!cancelled) {
-          setError((pollError as Error).message);
-        }
+      } catch (e) {
+        setJobs(prev => prev.map(j => j.jobId === jobId ? { ...j, error: (e as Error).message } : j));
+        window.clearInterval(intervalsRef.current.get(jobId));
+        intervalsRef.current.delete(jobId);
       }
     }, 2000);
+    intervalsRef.current.set(jobId, id);
+  }, []);
 
-    return () => {
-      cancelled = true;
-      window.clearInterval(pollInterval);
-    };
-  }, [currentJobId]);
+  useEffect(() => {
+    return () => { intervalsRef.current.forEach(id => window.clearInterval(id)); };
+  }, []);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isConfigured) {
-      setError("Set VITE_API_BASE_URL before submitting jobs");
-      return;
-    }
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!isConfigured) { setError("Set VITE_API_BASE_URL before submitting jobs"); return; }
 
     setError(null);
     setIsSubmitting(true);
-    setJob(null);
 
-    try {
-      const created = await createJob(message.trim());
-      setCurrentJobId(created.jobId);
-      const initialJob = await fetchJob(created.jobId);
-      setJob(initialJob);
-    } catch (submitError) {
-      setError((submitError as Error).message);
-    } finally {
-      setIsSubmitting(false);
+    const label = message.trim();
+    const n = Math.min(count, MAX_JOBS - jobs.length);
+    if (n <= 0) { setError(`Maximum of ${MAX_JOBS} jobs reached`); setIsSubmitting(false); return; }
+
+    const baseCounter = counter;
+    setCounter(c => c + n);
+
+    // fire all n jobs in parallel
+    const results = await Promise.allSettled(
+      Array.from({ length: n }, async (_, i) => {
+        const created = await createJob(label);
+        const initial = await fetchJob(created.jobId);
+        return { counter: baseCounter + i + 1, label, jobId: created.jobId, data: initial, error: null } as TrackedJob;
+      })
+    );
+
+    const succeeded: TrackedJob[] = [];
+    const errors: string[] = [];
+    results.forEach(r => {
+      if (r.status === "fulfilled") succeeded.push(r.value);
+      else errors.push((r.reason as Error).message);
+    });
+
+    if (succeeded.length > 0) {
+      setJobs(prev => [...succeeded, ...prev]);
+      succeeded.forEach(j => { if (j.data?.status !== "COMPLETED") startPolling(j.jobId); });
     }
+    if (errors.length > 0) setError(errors[0]);
+
+    setIsSubmitting(false);
   }
 
   return (
     <div className="page">
       <main className="card">
         <h1>Serverless Job Runner</h1>
-        <p>
-          Submit work from React. API Gateway triggers Lambda, then SNS + SQS process and persist the
-          result.
-        </p>
+        <p>Submit work from React. API Gateway triggers Lambda, then SNS + SQS process and persist the result.</p>
 
         <form onSubmit={onSubmit} className="stack">
           <label htmlFor="message">Message</label>
-          <input
-            id="message"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Type work payload"
-            required
-          />
+          <div className="input-row">
+            <input
+              id="message"
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Type work payload"
+              required
+            />
+            <input
+              id="count"
+              type="number"
+              min={1}
+              max={MAX_JOBS}
+              value={count}
+              onChange={e => setCount(Math.max(1, Math.min(MAX_JOBS, Number(e.target.value))))}
+              className="count-input"
+              title="Number of jobs to create"
+            />
+          </div>
           <button type="submit" disabled={isSubmitting || !message.trim()}>
-            {isSubmitting ? "Submitting..." : "Create Job"}
+            {isSubmitting
+              ? "Submitting…"
+              : count === 1 ? "Create Job" : `Create ${count} Jobs`}
           </button>
         </form>
 
-        {!isConfigured && (
-          <p className="warning">VITE_API_BASE_URL is missing. Add it in frontend/.env.local.</p>
-        )}
-
+        {!isConfigured && <p className="warning">VITE_API_BASE_URL is missing. Add it in frontend/.env.local.</p>}
         {error && <p className="error">{error}</p>}
 
-        {job && (
-          <section className="job">
-            <h2>Job Status</h2>
-            <p>
-              <strong>Message:</strong> {job.message}
-            </p>
-            <p>
-              <strong>ID:</strong> {job.jobId}
-            </p>
-            <p>
-              <strong>Status pending:</strong> {formatTimestampWithMs(job.createdAt)}
-            </p>
-            {job.processingAt && (
-              <p>
-                <strong>Status processing:</strong>{" "}
-                {formatTimestampWithMs(job.processingAt)}
-              </p>
-            )}
-            {job.processedAt && (
-              <p>
-                <strong>Status completed:</strong>{" "}
-                {formatTimestampWithMs(job.processedAt)}
-              </p>
-            )}
-            {job.result && (
-              <p>
-                <strong>Result:</strong> {job.result}
-              </p>
-            )}
-            {job.status !== "COMPLETED" && (
-              <div className="job-polling">
-                <span className="spinner" />
-                {job.status === "PENDING" ? "Waiting to process…" : "Processing…"}
-              </div>
-            )}
+        {jobs.length > 0 && (
+          <section className="job-list">
+            <h2 className="job-list-header">
+              Jobs <span className="job-count">{jobs.length}</span>
+            </h2>
+            <div className="job-list-scroll">
+              {jobs.map((job, idx) => (
+                <div
+                  key={job.jobId}
+                  className={`job-card ${job.data?.status.toLowerCase() ?? "pending"}`}
+                  style={{ animationDelay: `${idx * 35}ms` }}
+                >
+                  <div className="job-card-header">
+                    <span className="job-tag">#{job.counter}</span>
+                    <span className="job-label" title={job.label}>{job.label}</span>
+                    <span className="job-id">{job.jobId.slice(0, 8)}…</span>
+                    {job.data && job.data.status !== "COMPLETED" && <span className="spinner spinner-sm" />}
+                  </div>
+                  {job.error && <p className="error job-error">{job.error}</p>}
+                  {job.data && (
+                    <div className="job-timeline">
+                      <span className="tl-item tl-pending">
+                        <span className="tl-dot" />
+                        <span className="tl-label">Pending</span>
+                        <span className="tl-time">{formatTs(job.data.createdAt)}</span>
+                      </span>
+                      {job.data.processingAt && (
+                        <span className="tl-item tl-processing">
+                          <span className="tl-dot" />
+                          <span className="tl-label">Processing</span>
+                          <span className="tl-time">{formatTs(job.data.processingAt)}</span>
+                        </span>
+                      )}
+                      {job.data.processedAt && (
+                        <span className="tl-item tl-completed">
+                          <span className="tl-dot" />
+                          <span className="tl-label">Completed</span>
+                          <span className="tl-time">{formatTs(job.data.processedAt)}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {job.data?.result && (
+                    <p className="job-result"><strong>Result:</strong> {job.data.result}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
         )}
       </main>
