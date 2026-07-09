@@ -153,30 +153,37 @@ export default function App() {
           <section className="job">
             <h2>Job Status</h2>
             <p>
+              <strong>Message:</strong> {job.message}
+            </p>
+            <p>
               <strong>ID:</strong> {job.jobId}
             </p>
             <p>
               <strong>Status pending:</strong> {formatTimestampWithMs(job.createdAt)}
             </p>
-            <p>
-              <strong>Status processing:</strong>{" "}
-              {formatTimestampWithMs(job.processingAt)}
-            </p>
-            <p>
-              <strong>Status completed:</strong>{" "}
-              {formatTimestampWithMs(job.processedAt)}
-            </p>
-            <p>
-              <strong>Message:</strong> {job.message}
-            </p>
+            {job.processingAt && (
+              <p>
+                <strong>Status processing:</strong>{" "}
+                {formatTimestampWithMs(job.processingAt)}
+              </p>
+            )}
+            {job.processedAt && (
+              <p>
+                <strong>Status completed:</strong>{" "}
+                {formatTimestampWithMs(job.processedAt)}
+              </p>
+            )}
             {job.result && (
               <p>
                 <strong>Result:</strong> {job.result}
               </p>
             )}
-            <p>
-              <strong>Updated:</strong> {new Date(job.updatedAt).toLocaleString()}
-            </p>
+            {job.status !== "COMPLETED" && (
+              <div className="job-polling">
+                <span className="spinner" />
+                {job.status === "PENDING" ? "Waiting to process…" : "Processing…"}
+              </div>
+            )}
           </section>
         )}
       </main>
