@@ -59,6 +59,15 @@ function formatTs(iso?: string): string {
   return `${pad(h % 12 || 12)}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)} ${h >= 12 ? "pm" : "am"}`;
 }
 
+function gridCols(n: number): string {
+  if (n === 1)  return 'minmax(auto, 520px)';
+  if (n <= 4)   return 'repeat(2, 1fr)';
+  if (n <= 9)   return 'repeat(3, 1fr)';
+  if (n <= 20)  return 'repeat(4, 1fr)';
+  if (n <= 35)  return 'repeat(5, 1fr)';
+  return 'repeat(6, 1fr)';
+}
+
 export default function App() {
   const [message, setMessage] = useState("Build me a serverless sample");
   const [count, setCount] = useState(1);
@@ -131,7 +140,7 @@ export default function App() {
   }
 
   return (
-    <div className="page">
+    <div className={`page${jobs.length > 0 ? ' has-jobs' : ''}`}>
       <main className="card">
         <h1>Serverless Job Runner</h1>
         <p>Submit work from React. API Gateway triggers Lambda, then SNS + SQS process and persist the result.</p>
@@ -173,7 +182,7 @@ export default function App() {
             <h2 className="job-list-header">
               Jobs <span className="job-count">{jobs.length}</span>
             </h2>
-            <div className="job-list-scroll">
+            <div className="job-list-scroll" style={{ gridTemplateColumns: gridCols(jobs.length) }}>
               {jobs.map((job, idx) => (
                 <div
                   key={job.jobId}
