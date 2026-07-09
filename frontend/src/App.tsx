@@ -97,6 +97,10 @@ export default function App() {
   // Look up live data each render so modal stays fresh during polling
   const hoveredJob = hoveredJobId ? (jobs.find(j => j.jobId === hoveredJobId) ?? null) : null;
 
+  function toggleView() {
+    setViewMode(v => v === 'grid' ? 'stacked' : 'grid');
+  }
+
   function showModal(job: TrackedJob, x: number, y: number) {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     setHoveredJobId(job.jobId);
@@ -220,7 +224,12 @@ export default function App() {
   return (
     <div className={`page${visibleJobs > 0 ? ' has-jobs' : ''}`}>
       <main className="card">
-        <h1>Serverless Job Runner</h1>
+        <div className="card-title-row">
+          <h1>Serverless Job Runner</h1>
+          <button className="view-toggle" type="button" onClick={toggleView}>
+            {viewMode === 'grid' ? '☰ Stack' : '⊞ Grid'}
+          </button>
+        </div>
         <p>Submit work from React. API Gateway triggers Lambda, then SNS + SQS process and persist the result.</p>
 
         <form onSubmit={onSubmit} className="stack">
@@ -279,13 +288,6 @@ export default function App() {
                     {(jobs.some(j => j.loading) || inFlight) && <span className="spinner spinner-sm" />}
                     {allSettled && errored === 0 && <span className="run-ok">✓ all passed{elapsedStr}</span>}
                     {allSettled && errored > 0  && <span className="run-fail">✗ {errored} failed{elapsedStr}</span>}
-                    <button
-                      className="view-toggle"
-                      type="button"
-                      onClick={() => setViewMode(v => v === 'grid' ? 'stacked' : 'grid')}
-                    >
-                      {viewMode === 'grid' ? '☰ Stack' : '⊞ Grid'}
-                    </button>
                   </span>
                 </h2>
               );
