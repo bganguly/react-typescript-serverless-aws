@@ -284,7 +284,6 @@ export default function App() {
                   <div
                     key={job.jobId}
                     className={`job-card ${job.loading ? 'loading' : (job.data?.status.toLowerCase() ?? 'pending')}`}
-                    style={{ animationDelay: `${Math.min(idx * 20, 300)}ms` }}
                     onMouseEnter={job.loading ? undefined : (e) => showModal(job, e.clientX, e.clientY)}
                     onMouseLeave={job.loading ? undefined : hideModal}
                   >

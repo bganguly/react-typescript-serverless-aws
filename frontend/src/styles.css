@@ -241,7 +241,6 @@ button:disabled {
   border-radius: 6px;
   padding: 0.3rem 0.55rem;
   font-size: 0.78rem;
-  animation: fadeIn 280ms ease-out both;
 }
 
 .job-card.loading    { border-left-color: #4b5563; background: rgba(75,85,99,0.04); }
