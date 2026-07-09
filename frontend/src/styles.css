@@ -462,7 +462,7 @@ button:disabled {
   word-break: break-word;
 }
 
-/* ── extra-small phones: show only #nn counter in job cards ──── */
+/* ── extra-small phones: show only #nnn counter in job cards ─── */
 @media (max-width: 480px) {
   .job-label    { display: none; }
   .job-id       { display: none; }
@@ -470,4 +470,14 @@ button:disabled {
   .job-result   { display: none; }
   .job-error    { display: none; }
   .job-label-muted { display: none; }
+  /* 4-col grid overrides the JS inline style so each card is ~90px wide */
+  .job-list-scroll {
+    grid-template-columns: repeat(4, 1fr) !important;
+    grid-auto-rows: auto !important;
+    overflow-y: auto !important;
+  }
+  /* centre and slightly enlarge the counter chip */
+  .job-card { min-height: 32px; }
+  .job-card-header { justify-content: center; }
+  .job-tag { font-size: 0.75rem; padding: 0.05rem 0.35rem; }
 }
