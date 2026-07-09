@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED";
 
@@ -89,7 +90,20 @@ export default function App() {
   const jobsRef = useRef<TrackedJob[]>([]);
   const runStartRef = useRef<number>(0);
   const hoverTimer = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   jobsRef.current = jobs;
+
+  // Restore scroll when switching back to the tab (visibilitychange)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return;
+      if (!scrollRef.current || jobsRef.current.length === 0) return;
+      const saved = Number(localStorage.getItem('sls-scroll') ?? 0);
+      if (saved > 0) scrollRef.current.scrollTop = saved;
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const isConfigured = Boolean(apiBaseUrl);
 
@@ -144,26 +158,24 @@ export default function App() {
     e.preventDefault();
     if (!isConfigured) { setError("Set VITE_API_BASE_URL before submitting jobs"); return; }
 
-    setError(null);
-    setWarmupMsg(null);
-    setIsSubmitting(true);
-    setElapsed(null);
-    setHoveredJobId(null);
-    runStartRef.current = Date.now();
-
     const label = message.trim();
     const n = Math.min(count, MAX_JOBS);
-
-    // Clean slate — instant placeholders before the API round-trip
     const placeholders: TrackedJob[] = Array.from({ length: n }, (_, i) => ({
-      counter: i + 1,
-      label,
-      jobId: `loading-${i}`,
-      data: null,
-      error: null,
-      loading: true,
+      counter: i + 1, label, jobId: `loading-${i}`, data: null, error: null, loading: true,
     }));
-    setJobs(placeholders);
+
+    // Force a synchronous paint before the network call so button + squares
+    // appear immediately (React 18 auto-batching would otherwise defer this)
+    flushSync(() => {
+      setError(null);
+      setWarmupMsg(null);
+      setIsSubmitting(true);
+      setElapsed(null);
+      setHoveredJobId(null);
+      setJobs(placeholders);
+    });
+    localStorage.removeItem('sls-scroll');
+    runStartRef.current = Date.now();
 
     try {
       const initialJobs = await createJobBatch(Array(n).fill(label), (attempt, max) => {
@@ -262,12 +274,17 @@ export default function App() {
               );
             })()}
 
-            <div className="job-list-scroll" style={{ gridTemplateColumns: gridCols(visibleJobs) }}>
+            <div
+                ref={scrollRef}
+                className="job-list-scroll"
+                style={{ gridTemplateColumns: gridCols(visibleJobs) }}
+                onScroll={e => localStorage.setItem('sls-scroll', String(e.currentTarget.scrollTop))}
+              >
                 {jobs.map((job, idx) => (
                   <div
                     key={job.jobId}
                     className={`job-card ${job.loading ? 'loading' : (job.data?.status.toLowerCase() ?? 'pending')}`}
-                    style={{ animationDelay: `${idx * 30}ms` }}
+                    style={{ animationDelay: `${Math.min(idx * 20, 300)}ms` }}
                     onMouseEnter={job.loading ? undefined : (e) => showModal(job, e.clientX, e.clientY)}
                     onMouseLeave={job.loading ? undefined : hideModal}
                   >
