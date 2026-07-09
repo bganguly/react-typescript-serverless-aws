@@ -202,9 +202,23 @@ export default function App() {
 
         {visibleJobs > 0 && (
           <section className="job-list">
-            <h2 className="job-list-header">
-              Jobs <span className="job-count">{visibleJobs}</span>
-            </h2>
+            {(() => {
+              const submitted  = jobs.filter(j => !j.loading).length;
+              const pending    = jobs.filter(j => j.data?.status === "PENDING").length;
+              const processing = jobs.filter(j => j.data?.status === "PROCESSING").length;
+              const completed  = jobs.filter(j => j.data?.status === "COMPLETED").length;
+              return (
+                <h2 className="job-list-header">
+                  <span className="jstat">submitted <b>{submitted}</b></span>
+                  <span className="jstat-sep">·</span>
+                  <span className="jstat jstat-pending">pending <b>{pending}</b></span>
+                  <span className="jstat-sep">·</span>
+                  <span className="jstat jstat-processing">processing <b>{processing}</b></span>
+                  <span className="jstat-sep">·</span>
+                  <span className="jstat jstat-completed">completed <b>{completed}</b></span>
+                </h2>
+              );
+            })()}
             <div className="job-list-scroll" style={{ gridTemplateColumns: gridCols(visibleJobs) }}>
               {jobs.map((job, idx) => (
                 <div
