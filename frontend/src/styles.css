@@ -476,6 +476,8 @@ button:disabled {
     grid-template-columns: repeat(4, 1fr) !important;
     grid-auto-rows: auto !important;
     overflow-y: auto !important;
+    /* push last row above the Android gesture bar / iOS home indicator */
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
   }
   /* centre and slightly enlarge the counter chip */
   .job-card { min-height: 32px; }
