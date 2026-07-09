@@ -115,30 +115,26 @@ export default function App() {
     setIsSubmitting(true);
 
     const label = message.trim();
-    const n = Math.min(count, MAX_JOBS - jobs.length);
-    if (n <= 0) { setError(`Maximum of ${MAX_JOBS} jobs reached`); setIsSubmitting(false); return; }
+    const n = Math.min(count, MAX_JOBS);
 
-    const baseCounter = counter;
-    setCounter(c => c + n);
-
-    // Show placeholder cards immediately so the grid appears on keypress
-    const placeholderIds = Array.from({ length: n }, (_, i) => `loading-${baseCounter + i}`);
-    const placeholders: TrackedJob[] = placeholderIds.map((id, i) => ({
-      counter: baseCounter + i + 1,
+    // Clean slate — each submit replaces the previous batch entirely
+    setCounter(n);
+    const placeholders: TrackedJob[] = Array.from({ length: n }, (_, i) => ({
+      counter: i + 1,
       label,
-      jobId: id,
+      jobId: `loading-${i}`,
       data: null,
       error: null,
       loading: true,
     }));
-    setJobs(prev => [...placeholders, ...prev]);
+    setJobs(placeholders);
 
     try {
       const initialJobs = await createJobBatch(Array(n).fill(label), (attempt, max) => {
         setWarmupMsg(`Lambda warming up — retry ${attempt}/${max - 1}…`);
       });
       const tracked: TrackedJob[] = initialJobs.map((data, i) => ({
-        counter: baseCounter + i + 1,
+        counter: i + 1,
         label,
         jobId: data.jobId,
         data,
@@ -146,14 +142,10 @@ export default function App() {
         loading: false,
       }));
       setWarmupMsg(null);
-      // Replace placeholders with real jobs (preserve order)
-      setJobs(prev => {
-        const withoutPlaceholders = prev.filter(j => !j.loading);
-        return [...tracked, ...withoutPlaceholders];
-      });
+      setJobs(tracked);
     } catch (err) {
-      setJobs(prev => prev.filter(j => !j.loading));
-      setCounter(c => c - n);
+      setJobs([]);
+      setCounter(0);
       setError((err as Error).message);
     }
 
@@ -161,6 +153,9 @@ export default function App() {
   }
 
   const visibleJobs = jobs.length;
+  const realJobs    = jobs.filter(j => !j.loading);
+  const inFlight    = realJobs.some(j => !j.error && j.data?.status !== "COMPLETED");
+  const isLocked    = isSubmitting || jobs.some(j => j.loading) || inFlight;
 
   return (
     <div className={`page${visibleJobs > 0 ? ' has-jobs' : ''}`}>
@@ -189,9 +184,10 @@ export default function App() {
               title="Number of jobs to create"
             />
           </div>
-          <button type="submit" disabled={isSubmitting || !message.trim()}>
+          <button type="submit" disabled={isLocked || !message.trim()}>
             {isSubmitting
               ? "Submitting…"
+              : isLocked ? "Running…"
               : count === 1 ? "Create Job" : `Create ${count} Jobs`}
           </button>
         </form>
@@ -203,10 +199,12 @@ export default function App() {
         {visibleJobs > 0 && (
           <section className="job-list">
             {(() => {
-              const submitted  = jobs.filter(j => !j.loading).length;
+              const submitted  = realJobs.length;
               const pending    = jobs.filter(j => j.data?.status === "PENDING").length;
               const processing = jobs.filter(j => j.data?.status === "PROCESSING").length;
               const completed  = jobs.filter(j => j.data?.status === "COMPLETED").length;
+              const errored    = realJobs.filter(j => j.error).length;
+              const allSettled = submitted > 0 && !inFlight && !jobs.some(j => j.loading);
               return (
                 <h2 className="job-list-header">
                   <span className="jstat">submitted <b>{submitted}</b></span>
@@ -216,6 +214,11 @@ export default function App() {
                   <span className="jstat jstat-processing">processing <b>{processing}</b></span>
                   <span className="jstat-sep">·</span>
                   <span className="jstat jstat-completed">completed <b>{completed}</b></span>
+                  <span className="run-status">
+                    {(jobs.some(j => j.loading) || inFlight) && <span className="spinner spinner-sm" />}
+                    {allSettled && errored === 0 && <span className="run-ok">✓ all passed</span>}
+                    {allSettled && errored > 0  && <span className="run-fail">✗ {errored} failed</span>}
+                  </span>
                 </h2>
               );
             })()}
