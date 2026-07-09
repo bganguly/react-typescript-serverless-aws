@@ -86,7 +86,6 @@ export default function App() {
   const [elapsed, setElapsed] = useState<number | null>(null);
   const [hoveredJobId, setHoveredJobId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [viewMode, setViewMode] = useState<'grid' | 'stacked'>('grid');
   const jobsRef = useRef<TrackedJob[]>([]);
   const runStartRef = useRef<number>(0);
   const hoverTimer = useRef<number | null>(null);
@@ -96,10 +95,6 @@ export default function App() {
 
   // Look up live data each render so modal stays fresh during polling
   const hoveredJob = hoveredJobId ? (jobs.find(j => j.jobId === hoveredJobId) ?? null) : null;
-
-  function toggleView() {
-    setViewMode(v => v === 'grid' ? 'stacked' : 'grid');
-  }
 
   function showModal(job: TrackedJob, x: number, y: number) {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -196,40 +191,14 @@ export default function App() {
   const inFlight       = realJobs.some(j => !j.error && j.data?.status !== "COMPLETED");
   const isLocked       = isSubmitting || jobs.some(j => j.loading) || inFlight;
 
-  // Stacked view buckets
-  const stkPending    = jobs.filter(j => j.loading || (!j.error && j.data?.status === 'PENDING'));
-  const stkProcessing = jobs.filter(j => !j.loading && !j.error && j.data?.status === 'PROCESSING');
-  const stkDone       = jobs.filter(j => !j.loading && (!!j.error || j.data?.status === 'COMPLETED'));
-
   // Modal position clamped to viewport
   const modalX = Math.min(mousePos.x + 14, window.innerWidth - 400);
   const modalY = Math.max(8, Math.min(mousePos.y - 20, window.innerHeight - 340));
 
-  function FloorChip({ job, extra }: { job: TrackedJob; extra?: string }) {
-    return (
-      <div
-        className={`stk-floor${extra ? ` ${extra}` : ''}`}
-        onMouseEnter={job.loading ? undefined : (e) => showModal(job, e.clientX, e.clientY)}
-        onMouseLeave={job.loading ? undefined : hideModal}
-      >
-        {(job.loading || job.data?.status === 'PROCESSING') && (
-          <span className="spinner spinner-sm" />
-        )}
-        <span className="job-tag">#{job.counter}</span>
-        <span className="stk-floor-msg">{job.error ?? job.label}</span>
-      </div>
-    );
-  }
-
   return (
     <div className={`page${visibleJobs > 0 ? ' has-jobs' : ''}`}>
       <main className="card">
-        <div className="card-title-row">
-          <h1>Serverless Job Runner</h1>
-          <button className="view-toggle" type="button" onClick={toggleView}>
-            {viewMode === 'grid' ? '☰ Stack' : '⊞ Grid'}
-          </button>
-        </div>
+        <h1>Serverless Job Runner</h1>
         <p>Submit work from React. API Gateway triggers Lambda, then SNS + SQS process and persist the result.</p>
 
         <form onSubmit={onSubmit} className="stack">
@@ -293,44 +262,7 @@ export default function App() {
               );
             })()}
 
-            {viewMode === 'stacked' ? (
-              <div className="stk-board">
-                {/* PENDING */}
-                <div className="stk-col stk-col-pending">
-                  <div className="stk-col-hdr">
-                    Pending <b>{stkPending.length}</b>
-                  </div>
-                  <div className="stk-floors">
-                    {stkPending.map(j => (
-                      <FloorChip key={j.jobId} job={j} extra={j.loading ? 'stk-floor-creating' : undefined} />
-                    ))}
-                  </div>
-                </div>
-                {/* PROCESSING */}
-                <div className="stk-col stk-col-processing">
-                  <div className="stk-col-hdr">
-                    Processing <b>{stkProcessing.length}</b>
-                  </div>
-                  <div className="stk-floors">
-                    {stkProcessing.map(j => (
-                      <FloorChip key={j.jobId} job={j} />
-                    ))}
-                  </div>
-                </div>
-                {/* COMPLETED / ERRORED */}
-                <div className="stk-col stk-col-completed">
-                  <div className="stk-col-hdr">
-                    Done <b>{stkDone.length}</b>
-                  </div>
-                  <div className="stk-floors">
-                    {stkDone.map(j => (
-                      <FloorChip key={j.jobId} job={j} extra={j.error ? 'stk-floor-error' : 'stk-floor-done'} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="job-list-scroll" style={{ gridTemplateColumns: gridCols(visibleJobs) }}>
+            <div className="job-list-scroll" style={{ gridTemplateColumns: gridCols(visibleJobs) }}>
                 {jobs.map((job, idx) => (
                   <div
                     key={job.jobId}
@@ -385,7 +317,6 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            )}
           </section>
         )}
       </main>
