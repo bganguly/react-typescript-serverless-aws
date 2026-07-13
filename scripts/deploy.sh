@@ -159,6 +159,11 @@ aws cloudfront create-invalidation \
   --distribution-id "${DISTRIBUTION_ID}" \
   --paths "/*" --query 'Invalidation.Id' --output text
 
+PORTFOLIO_SET_LIVE="$(cd "$ROOT_DIR/../../portfolio/scripts" 2>/dev/null && pwd || true)/set-live-url.sh"
+if [[ -n "${DOMAIN:-}" && -f "$PORTFOLIO_SET_LIVE" ]]; then
+  bash "$PORTFOLIO_SET_LIVE" serverless "https://${DOMAIN}" "https://${DOMAIN}/api-explorer.html"
+fi
+
 echo ""
 echo "[deploy] Done."
 echo "  API:      ${API_URL}"
