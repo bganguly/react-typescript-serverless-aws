@@ -2,6 +2,14 @@
 
 A minimal sample you can deploy with `sls deploy`.
 
+**[→ Portfolio demo](https://bganguly.github.io/?open=serverless)**
+
+## Using the App
+
+1. Click **Create Job** — the React app posts to API Gateway; `createJob` Lambda writes a `PENDING` record to DynamoDB and publishes an SNS event.
+2. SNS fans out to SQS; `processJob` Lambda consumes the message, transitions the job to `PROCESSING`, then marks it `COMPLETED`.
+3. The UI polls `GET /jobs/{jobId}` until the job completes and displays the result.
+
 ## Screenshots
 
 ![Job Completed Screen](assets/images/screenshot-2.png)
@@ -52,6 +60,17 @@ From the repo root (recommended):
 
 ```bash
 npm run deploy
+```
+
+`npm run deploy` runs `npx sls deploy` in `backend/`, packaging and deploying the Serverless Framework stack:
+
+```
+  ├─ API Gateway (HTTP API)
+  ├─ createJob Lambda  — POST /jobs → DynamoDB write + SNS publish
+  ├─ processJob Lambda — SQS consumer → PROCESSING → COMPLETED
+  ├─ SNS topic → SQS queue + dead-letter queue
+  ├─ DynamoDB jobs table
+  └─ outputs HttpApiUrl — set as VITE_API_BASE_URL in frontend/.env.local
 ```
 
 This deploys the backend stack and prints `HttpApiUrl` for frontend setup.
