@@ -9,6 +9,7 @@ const tableName = process.env.JOBS_TABLE;
 const topicArn = process.env.JOBS_TOPIC_ARN;
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+  if (!(event as any).requestContext) return { statusCode: 200, body: 'warm' };
   if (!tableName || !topicArn) {
     return {
       statusCode: 500,

@@ -6,6 +6,7 @@ import type { JobItem } from "../types/job";
 const tableName = process.env.JOBS_TABLE;
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+  if (!(event as any).requestContext) return { statusCode: 200, body: 'warm' };
   if (!tableName) {
     return {
       statusCode: 500,
