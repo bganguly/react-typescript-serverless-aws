@@ -14,6 +14,18 @@ aws sts get-caller-identity >/dev/null 2>&1 \
 echo "  Credentials valid."
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 
+_GH_REPO="$(git -C "${ROOT_DIR}" remote get-url origin 2>/dev/null \
+  | sed 's|.*github\.com[:/]\(.*\)\.git$|\1|; s|.*github\.com[:/]\(.*\)$|\1|')"
+if command -v gh >/dev/null 2>&1 && [[ -n "${_GH_REPO}" ]]; then
+  printf '  Syncing AWS credentials to GitHub Actions secrets (%s)...\n' "${_GH_REPO}"
+  aws configure get aws_access_key_id     | gh secret set AWS_ACCESS_KEY_ID     --repo "${_GH_REPO}"
+  aws configure get aws_secret_access_key | gh secret set AWS_SECRET_ACCESS_KEY --repo "${_GH_REPO}"
+  if [[ -f "${CF_STATE}" ]]; then
+    source "${CF_STATE}"
+    printf '%s' "${DISTRIBUTION_ID}" | gh secret set CF_DISTRIBUTION_ID --repo "${_GH_REPO}"
+  fi
+fi
+
 # ── Backend: Serverless deploy ────────────────────────────────────────────────
 echo ""
 echo "[2/3] Deploying backend..."
