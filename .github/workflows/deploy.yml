@@ -1,0 +1,65 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      STAGE: dev
+      REGION: us-east-1
+      BUCKET_NAME: react-lambda-streaming-sample-dev-site
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy backend
+        working-directory: backend
+        run: |
+          npm install
+          npx sls deploy --stage dev --region us-east-1
+
+      - name: Get API URL
+        id: api
+        working-directory: backend
+        run: |
+          INFO="$(npx sls info --verbose --stage dev --region us-east-1 2>&1)"
+          API_URL="$(printf '%s\n' "${INFO}" | grep -E 'HttpApiUrl:' | tail -n 1 | sed -E 's/.*HttpApiUrl:[[:space:]]*//')"
+          if [[ -z "${API_URL}" ]]; then
+            API_URL="$(printf '%s\n' "${INFO}" | grep -E 'POST - https?://' | head -n 1 \
+              | sed -E 's/.*POST - (https?:\/\/[^ ]+).*/\1/' | sed -E 's#/jobs(/.*)?$##')"
+          fi
+          API_URL="${API_URL//amazonaws.comamazonaws.com/amazonaws.com}"
+          echo "url=${API_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Build frontend
+        run: |
+          npm --prefix frontend install
+          VITE_API_BASE_URL="${{ steps.api.outputs.url }}" npm --prefix frontend run build
+
+      - name: Inject api-explorer page
+        run: |
+          printf '<script>window._apiBase = "%s";</script>\n' "${{ steps.api.outputs.url }}" > /tmp/api_prefix.html
+          cat /tmp/api_prefix.html api-explorer.html > frontend/dist/api-explorer.html
+
+      - name: Sync to S3
+        run: aws s3 sync frontend/dist/ s3://${{ env.BUCKET_NAME }}/ --delete
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CF_DISTRIBUTION_ID }}" \
+            --paths "/*" --query 'Invalidation.Id' --output text
