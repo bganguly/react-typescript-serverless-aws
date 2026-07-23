@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import BackToPortfolio from "./components/BackToPortfolio";
 
 type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED";
 
@@ -220,6 +221,7 @@ export default function App() {
 
   return (
     <div className={`page${visibleJobs > 0 ? ' has-jobs' : ''}`}>
+      <BackToPortfolio />
       <main className="card">
         <h1>Serverless Job Runner</h1>
         <p>Submit work from React. API Gateway triggers Lambda, then SNS + SQS process and persist the result.</p>
